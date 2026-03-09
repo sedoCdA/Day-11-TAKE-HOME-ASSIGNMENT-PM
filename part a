@@ -1,0 +1,103 @@
+import logging
+
+logging.basicConfig(
+    filename="student_system.log",
+    level=logging.ERROR,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+class InvalidMarksError(Exception):
+    pass
+    
+class DuplicateStudentError(Exception):
+    pass
+    
+records = []
+
+
+def add_student(name: str, subject: str, marks: int) -> None:
+    if not name.strip():
+        raise ValueError("Name cannot be empty.")
+    if not subject.strip():
+        raise ValueError("Subject cannot be empty.")
+    if not (0 <= marks <= 100):
+        raise InvalidMarksError(f"Marks must be 0-100, got {marks}.")
+    for r in records:
+        if r[0] == name and r[1] == subject:
+            raise DuplicateStudentError(f"'{name}' in '{subject}' already exists.")
+    records.append([name, subject, marks])
+    print(f"Added: {name} | {subject} | {marks}")
+
+
+def get_toppers(subject: str) -> list:
+    if not subject.strip():
+        raise ValueError("Subject cannot be empty.")
+    filtered = [r for r in records if r[1] == subject]
+    if not filtered:
+        raise LookupError(f"No records found for subject '{subject}'.")
+    return sorted(filtered, key=lambda x: x[2], reverse=True)[:3]
+
+
+def remove_student(name: str) -> None:
+    global records
+    if not name.strip():
+        raise ValueError("Name cannot be empty.")
+    before = len(records)
+    records = [r for r in records if r[0] != name]
+    if len(records) == before:
+        raise LookupError(f"No records found for '{name}'.")
+    print(f"Removed all records for '{name}'.")
+
+
+def save_to_file() -> None:
+    try:
+        with open("students.txt", "w") as f:
+            f.write("Name,Subject,Marks\n")
+            for r in records:
+                f.write(f"{r[0]},{r[1]},{r[2]}\n")
+        print("Records saved to students.txt")
+    except OSError as e:
+        logging.error(f"Failed to save records: {e}")
+        print("Error: Could not save records to file.")
+
+
+def menu() -> None:
+    while True:
+        print("\n1. Add Student\n2. Show Toppers\n3. Remove Student\n4. Exit")
+        try:
+            choice = input("Choice (1-4): ").strip()
+            if choice == "1":
+                name    = input("Name: ").strip()
+                subject = input("Subject: ").strip()
+                marks   = int(input("Marks: ").strip())
+                try:
+                    add_student(name, subject, marks)
+                except (ValueError, InvalidMarksError, DuplicateStudentError) as e:
+                    logging.error(f"add_student failed: {e}")
+                    print(f"Error: {e}")
+            elif choice == "2":
+                subject = input("Subject: ").strip()
+                try:
+                    toppers = get_toppers(subject)
+                    for i, r in enumerate(toppers, 1):
+                        print(f"  {i}. {r[0]} - {r[2]}")
+                except (ValueError, LookupError) as e:
+                    print(f"Error: {e}")
+            elif choice == "3":
+                name = input("Name: ").strip()
+                try:
+                    remove_student(name)
+                except (ValueError, LookupError) as e:
+                    print(f"Error: {e}")
+            elif choice == "4":
+                save_to_file()
+                break
+            else:
+                print("Invalid choice. Enter 1-4.")
+        except ValueError as e:
+            print(f"Invalid input: {e}. Please try again.")
+
+
+if __name__ == "__main__":
+    menu()
