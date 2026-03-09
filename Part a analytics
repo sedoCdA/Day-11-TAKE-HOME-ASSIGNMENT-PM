@@ -1,0 +1,104 @@
+import logging
+from collections import defaultdict
+
+logging.basicConfig(
+    filename="analytics.log",
+    level=logging.ERROR,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
+
+class InvalidMarksError(Exception):
+    pass
+
+
+def create_student(name, roll, **marks):
+    if not name.strip():
+        raise ValueError("Name cannot be empty.")
+    if not roll.strip():
+        raise ValueError("Roll number cannot be empty.")
+    for subject, mark in marks.items():
+        if not (0 <= mark <= 100):
+            raise InvalidMarksError(f"'{subject}' mark must be 0-100, got {mark}.")
+    return {"name": name, "roll": roll, "marks": marks, "attendance": 100.0}
+
+
+def calculate_gpa(*marks, scale=10.0):
+    if not marks:
+        return 0.0
+    return round((sum(marks) / len(marks) / 100) * scale, 2)
+
+
+def get_top_performers(students, n=5, subject=None):
+    if not students or n <= 0:
+        return []
+
+    def score(s):
+        m = s.get("marks", {})
+        return m.get(subject, 0) if subject else (sum(m.values()) / len(m) if m else 0)
+
+    return sorted(students, key=score, reverse=True)[:n]
+
+
+def classify_students(students):
+    bands = defaultdict(list)
+    for s in students:
+        m = s.get("marks", {})
+        avg = sum(m.values()) / len(m) if m else 0
+        if avg >= 90:   bands["A"].append(s)
+        elif avg >= 75: bands["B"].append(s)
+        elif avg >= 60: bands["C"].append(s)
+        else:           bands["D"].append(s)
+    return {g: bands[g] for g in ["A", "B", "C", "D"]}
+
+
+def main():
+    students = []
+
+    while True:
+        print("\n1. Add Student\n2. Top Performers\n3. Classify Students\n4. Exit")
+        choice = input("Choice: ").strip()
+
+        if choice == "1":
+            try:
+                name  = input("Name: ").strip()
+                roll  = input("Roll: ").strip()
+                math  = int(input("Math marks: "))
+                py    = int(input("Python marks: "))
+                ml    = int(input("ML marks: "))
+                s     = create_student(name, roll, math=math, python=py, ml=ml)
+                students.append(s)
+                print(f"Added {name} with GPA {calculate_gpa(*s['marks'].values())}")
+            except (ValueError, InvalidMarksError) as e:
+                logging.error(e)
+                print(f"Error: {e}")
+
+        elif choice == "2":
+            try:
+                n   = int(input("How many top students: "))
+                sub = input("Subject (leave blank for overall): ").strip() or None
+                top = get_top_performers(students, n=n, subject=sub)
+                if not top:
+                    print("No students found.")
+                for s in top:
+                    print(f"  {s['name']} — {s['marks']}")
+            except ValueError as e:
+                print(f"Error: {e}")
+
+        elif choice == "3":
+            if not students:
+                print("No students added yet.")
+            else:
+                for grade, group in classify_students(students).items():
+                    print(f"  Grade {grade}: {[s['name'] for s in group]}")
+
+        elif choice == "4":
+            print("Goodbye.")
+            break
+
+        else:
+            print("Invalid choice.")
+
+
+if __name__ == "__main__":
+    main()
